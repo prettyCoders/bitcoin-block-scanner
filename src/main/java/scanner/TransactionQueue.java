@@ -15,22 +15,12 @@ public class TransactionQueue {
     /**
      * 用于存放生产的交易数据
      */
-    Queue<JSONObject> transactionsQueue;
+    private Queue<JSONObject> transactionsQueue;
 
     /**
      * 数据总量
      */
     private final int transactionCount;
-
-    /**
-     * 队列头
-     */
-    private int head;
-
-    /**
-     * 队列尾
-     */
-    private int tail;
 
     /**
      * 当前入队数量
@@ -40,7 +30,7 @@ public class TransactionQueue {
     /**
      * 可指定数据总量构造方法
      *
-     * @param transactionCount
+     * @param transactionCount 数据总量
      */
     public TransactionQueue(int transactionCount) {
         this.transactionCount = transactionCount;
@@ -85,7 +75,7 @@ public class TransactionQueue {
     /**
      * 查询是否所有数据都已经生产完成
      */
-    public boolean producFinished() {
+    public boolean productFinished() {
         return count == transactionCount;
     }
 

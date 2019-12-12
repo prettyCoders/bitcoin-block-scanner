@@ -33,20 +33,6 @@ public class BlockScanner {
      */
     private Block block;
 
-    public Block getBlock(){
-        return this.block;
-    }
-
-    /**
-     * 存放交易数据的队列，必须使用线程安全的队列
-     */
-    private final Queue<JSONObject> queue;
-
-
-    /**
-     * 交易队列的提交次数，用于判断任务是否完成（queueSubmitCount==区块交易数量）
-     */
-    private volatile int queueSubmitCount = 0;
 
     private ForkJoinPool forkJoinPool;
 
@@ -67,7 +53,7 @@ public class BlockScanner {
      */
     public BlockScanner() {
         this.threadCount = DEFAULT_THREAD_COUNT;
-        queue = new ConcurrentLinkedQueue<>();
+        forkJoinPool = new ForkJoinPool(threadCount);
     }
 
     /**
@@ -77,36 +63,41 @@ public class BlockScanner {
      */
     public BlockScanner(int threadCount) {
         this.threadCount = threadCount;
-        queue = new ConcurrentLinkedQueue<>();
+        forkJoinPool = new ForkJoinPool(threadCount);
     }
 
-    public boolean isFinished() {
-        //所有交易查询的结果已经 push 进了队列，并且 queue.isEmpty()，也就是说已经全部被 take
-        return block.getTx().size() == getQueueSubmitCount() && queue.isEmpty();
+    public Block getBlock(){
+        return this.block;
     }
 
-    public boolean isEmptyQueue() {
-        return queue.isEmpty();
-    }
+//    public boolean isFinished() {
+//        //所有交易查询的结果已经 push 进了队列，并且 queue.isEmpty()，也就是说已经全部被 take
+//        return block.getTx().size() == getQueueSubmitCount() && queue.isEmpty();
+//    }
+//
+//    public boolean isEmptyQueue() {
+//        return queue.isEmpty();
+//    }
 
     /**
      * 扫描
      *
      * @param blockHeight 区块高度
      */
-    public void scan(int blockHeight) {
+    public TransactionQueue scan(int blockHeight) {
 
         String blockHash = queryBlockHash(blockHeight);
         block = queryBlockDataByHash(blockHash);
         // 创建包含Runtime.getRuntime().availableProcessors()返回值作为个数的并行线程的ForkJoinPool
-        forkJoinPool = new ForkJoinPool(threadCount);
         // 提交可分解的 TransactionQuerier 任务
         int transactionCount = block.getTx().size();
+        TransactionQueue transactionQueue=new TransactionQueue(transactionCount);
         //ForkJoin 会不断拆分任务，如果总任务数量为奇数，则会造成丢失
-        if (transactionCount % 2 != 0) {
-            transactionCount++;
-        }
-        forkJoinPool.execute(new TransactionQuerier(block.getTx(), 0, transactionCount));
+//        if (transactionCount % 2 != 0) {
+//            transactionCount++;
+//        }
+        forkJoinPool.execute(new TransactionQuerier(block.getTx(), 0, transactionCount,transactionQueue));
+        return transactionQueue;
     }
 
     /**
@@ -120,17 +111,17 @@ public class BlockScanner {
     }
 
 
-    private void addQueueSubmitCount(){
-        synchronized (this){
-            queueSubmitCount++;
-        }
-    }
-
-    private int getQueueSubmitCount(){
-        synchronized (this){
-            return queueSubmitCount;
-        }
-    }
+//    private void addQueueSubmitCount(){
+//        synchronized (this){
+//            queueSubmitCount++;
+//        }
+//    }
+//
+//    private int getQueueSubmitCount(){
+//        synchronized (this){
+//            return queueSubmitCount;
+//        }
+//    }
 
 
     private String queryBlockHash(int height) {
@@ -161,13 +152,13 @@ public class BlockScanner {
         return new Gson().fromJson(JSONObject.parseObject(response).getJSONObject("result").toString(), Block.class);
     }
 
-    public JSONObject take() {
-        return queue.poll();
-    }
-
-    public int queueSize() {
-        return queue.size();
-    }
+//    public JSONObject take() {
+//        return queue.poll();
+//    }
+//
+//    public int queueSize() {
+//        return queue.size();
+//    }
 
 
     /**
@@ -177,11 +168,13 @@ public class BlockScanner {
         private final List<String> txHashes;
         private int start;
         private int end;
+        private final TransactionQueue transactionQueue;
 
-        public TransactionQuerier(List<String> txHashes, int start, int end) {
+        public TransactionQuerier(List<String> txHashes, int start, int end,TransactionQueue transactionQueue) {
             this.txHashes = txHashes;
             this.start = start;
             this.end = end;
+            this.transactionQueue=transactionQueue;
         }
 
         // 每个"小任务"最多查询多少笔交易（交易数量/并发数）
@@ -192,14 +185,18 @@ public class BlockScanner {
             // 当end-start的值小于MAX时候，开始打印
             if ((end - start) < THRESHOLD) {
                 for (int i = start; i < end; i++) {
-                    queue.offer(queryRawTransaction(txHashes.get(i)));
-                    addQueueSubmitCount();
+                    try {
+                        transactionQueue.offer(queryRawTransaction(txHashes.get(i)));
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+//                    addQueueSubmitCount();
 //                    System.out.println("队列提交次数：" + getQueueSubmitCount());
                 }
             } else {
                 // 将大任务分解成两个小任务
                 int middle = (start + end) / 2;
-                invokeAll(new TransactionQuerier(txHashes, start, middle), new TransactionQuerier(txHashes, middle, end));
+                invokeAll(new TransactionQuerier(txHashes, start, middle,transactionQueue), new TransactionQuerier(txHashes, middle, end,transactionQueue));
             }
         }
 

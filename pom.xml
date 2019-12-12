@@ -42,16 +42,6 @@
             <version>1.16.20</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/org.junit/com.springsource.org.junit -->
-        <!--<dependency>-->
-            <!--<groupId>org.junit</groupId>-->
-            <!--<artifactId>com.springsource.org.junit</artifactId>-->
-            <!--<version>4.11.0</version>-->
-            <!--<scope>test</scope>-->
-        <!--</dependency>-->
-
-
-
 
         <!-- https://mvnrepository.com/artifact/org.slf4j/slf4j-api -->
         <dependency>
@@ -100,6 +90,33 @@
                     <source>1.8</source>
                     <target>1.8</target>
                 </configuration>
+            </plugin>
+
+            <!--打包可执行jar-->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>2.4.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <manifestEntries>
+                                        <Main-Class>Application</Main-Class>   //main方法所在类
+                                        <X-Compile-Source-JDK>1.8</X-Compile-Source-JDK>  //JDK版本
+                                        <X-Compile-Target-JDK>1.8</X-Compile-Target-JDK>  //JDK版本
+                                    </manifestEntries>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
