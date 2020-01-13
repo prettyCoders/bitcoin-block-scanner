@@ -22,17 +22,6 @@
             <goals>
               <goal>shade</goal>
             </goals>
-            <configuration>
-              <transformers>
-                <transformer>
-                  <manifestEntries>
-                    <Main-Class>Application</Main-Class>
-                    <X-Compile-Source-JDK>1.8</X-Compile-Source-JDK>
-                    <X-Compile-Target-JDK>1.8</X-Compile-Target-JDK>
-                  </manifestEntries>
-                </transformer>
-              </transformers>
-            </configuration>
           </execution>
         </executions>
       </plugin>
